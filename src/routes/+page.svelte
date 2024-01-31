@@ -4,7 +4,6 @@
   let responseHtml = '';
 
 
-  const formData = new FormData();
   const uploadFile = async () => {
     const file = fileInput.files?.[0];
 
@@ -22,6 +21,7 @@
           // 'Access-Control-Allow-Origin':'*'
           //},
           method: 'POST',
+          signal: AbortSignal.timeout(80000),
           keepalive: true,
           body: formData,
         }),
