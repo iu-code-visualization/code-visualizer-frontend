@@ -2,44 +2,66 @@
 
   let fileInput: HTMLInputElement;
   let responseHtml = '';
+  let requestSent = false;
 
+  function uploadFile() {
+      const file = fileInput.files?.[0];
 
-  const uploadFile = async () => {
-    const file = fileInput.files?.[0];
+      if (!file) {
+          console.error('Please select a file');
+          return;
+      }
+      const formData = new FormData();
+      formData.append('project-archive', file);
 
-    if (!file) {
-      console.error('Please select a file');
-      return;
-    }
-    const formData = new FormData();
-    formData.append('project-archive', file);
-    try {
-      const response = await Promise.race([
-        fetch('http://127.0.0.1:8000/visualize', {
-          mode: 'no-cors',
-          //headers: {
-          // 'Access-Control-Allow-Origin':'*'
-          //},
+      fetch('http://127.0.0.1:8000/visualize', {
+          headers: {
+          'Access-Control-Allow-Origin':'*'
+          },
           method: 'POST',
           signal: AbortSignal.timeout(80000),
           keepalive: true,
           body: formData,
-        }),
-        new Promise<Response>((_, reject) =>
-            setTimeout(() => reject(new Error('Request timed out')), 30000)
-        ),
-      ]);
+      }).then((response) => {
+          if (response.ok) {
+              response.text().then((responseText) => {
+                  responseHtml = responseText
+              });
+          } else {
+              console.error('Server error:', response.status, response.statusText);
+          }
+      }).catch((error) => {
+          console.error(error)
+      });
+      requestSent = true;
+  }
 
-      if (response.ok) {
-        responseHtml = await response.text();
-      } else {
-        console.error('Server error:', response.status, response.statusText);
+  const downloadHtml = () => {
+      if (responseHtml) {
+          const blob = new Blob([responseHtml], { type: 'text/html' });
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'downloaded-file.html'; // Установите желаемое имя файла
+          a.style.display = 'none';
+
+          document.body.appendChild(a);
+          a.click();
+
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
       }
-    } catch (error : any) {
-      console.error('Error:', error.message);
-    }
   };
+
 </script>
+
+<style>
+    iframe {
+        width: 100%;
+        height: 100vh;
+    }
+</style>
 
 <main>
     <h1>Загрузите zip-архив</h1>
@@ -48,9 +70,11 @@
     <button on:click={uploadFile}>Отправить файл</button>
 
     {#if responseHtml}
-        <div>
-            <h2>Ответ от сервера:</h2>
-            {@html responseHtml}
-        </div>
+        <button on:click={downloadHtml}>Скачать HTML</button>
+        <h2>Ответ от сервера:</h2>
+        <iframe srcdoc="{responseHtml}"></iframe>
+    {:else if requestSent}
+        <h2>Ждем ответ от сервера</h2>
     {/if}
+
 </main>
